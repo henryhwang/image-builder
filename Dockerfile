@@ -1,5 +1,5 @@
 # Use the official Rust image as the base image
-FROM rust:1.77-slim AS builder
+FROM rust:1.81-slim AS builder
 
 # Set the working directory inside the container
 WORKDIR /usr/src/aichat
