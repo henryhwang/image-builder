@@ -9,8 +9,8 @@ on:
 # Define environment variables
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  # IMAGE_NAME: aichat 
+  # IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{github.actor}}/aichat 
 
 jobs:
   build-and-push:
