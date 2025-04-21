@@ -1,35 +1,43 @@
-# Use the official Rust image as the base image
-FROM rust:1.81-slim AS builder
+ARG BUILD_IMAGE=rust:1.81-slim
+ARG BUILD_DEPS
+ARG TARGET
+ARG GITHUB_REPO
+ARG RUNTIME_IMAGE
 
-# Set the working directory inside the container
-WORKDIR /usr/src/aichat
+FROM ${BUILD_IMAGE} AS builder
 
-# Install necessary dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /usr/src/app
+ARG BUILD_DEPS
+ARG GITHUB_REPO
+ARG BUILD_COMMAND
+ARG TARGET
 
-# Clone the repository from GitHub
-RUN git clone https://github.com/sigoden/aichat.git .
+RUN if [ -n "${BUILD_DEPS}" ]; then \
+    apk add --no-cache ${BUILD_DEPS}; \
+    fi
 
-# Build the project
-RUN cargo build --release
+RUN apk add --no-cache git \
+    && git clone https://github.com/${GITHUB_REPO}.git . \
+    && apk del git
 
-# Final stage: Create a lightweight runtime image
-FROM debian:bookworm-slim
+RUN if [ -n "${TARGET}" ]; then \
+    rustup target add ${TARGET} && \
+    eval ${BUILD_COMMAND} --target ${TARGET}; \
+    else \
+    eval ${BUILD_COMMAND}; \
+    fi
 
-# Set the working directory
+FROM ${RUNTIME_IMAGE}
+
 WORKDIR /app
+ARG TARGET_BINARY
+ARG BINARY_NAME
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/aichat/target/release/aichat /app/aichat
+COPY --from=builder /usr/src/app/${TARGET_BINARY} /app/${BINARY_NAME}
 
-# Ensure the binary is executable
-RUN chmod +x /app/aichat
+RUN chmod +x /app/${BINARY_NAME}
 
-# Set environment variables (optional, adjust as needed)
 ENV PATH="/app:${PATH}"
 
-# Command to run the aichat CLI
-ENTRYPOINT ["/app/aichat"]
+ENTRYPOINT ["/app/${BINARY_NAME}"]
 CMD ["--help"]
