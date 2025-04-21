@@ -1,0 +1,19 @@
+# Configuration for building 'another-project'
+
+# --- Dockerfile Location ---
+# Example: Assuming this project has its own Dockerfile in its repo root
+dockerfile_location: target
+dockerfile_path: Dockerfile # Path relative to the root of another-owner/another-repo
+
+# --- Dockerfile ARGs (May or may not be used by the target Dockerfile) ---
+github_repo: another-owner/another-repo
+build_command: 'cargo build --release --features cool_feature'
+runtime_image: gcr.io/distroless/static-debian11 # This ARG might be ignored if target Dockerfile doesn't use it
+target_binary_path: target/release/another-app # This ARG might be ignored
+binary_name: another-app # This ARG might be ignored
+target: x86_64-unknown-linux-musl # This ARG might be ignored
+build_deps: musl-dev # This ARG might be ignored
+
+# --- Image Push ARGs ---
+image_name_suffix: another-app-image
+image_tag: v1.0.0

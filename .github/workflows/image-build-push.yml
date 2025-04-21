@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  CONFIG_FILE: projects.yaml # Define the config file path
+  # CONFIG_FILE is now determined dynamically
 
 jobs:
   build-and-push:
@@ -34,36 +34,56 @@ jobs:
         id: read_config
         run: |
           PROJECT_KEY="${{ github.event.inputs.project_key }}"
-          CONFIG_FILE="${{ env.CONFIG_FILE }}"
+          CONFIG_FILE="projects/${PROJECT_KEY}.yaml"
+          TARGET_REPO_DIR="./target_repo" # Define clone directory
 
           echo "Reading configuration for project key: $PROJECT_KEY from $CONFIG_FILE"
 
-          # Check if project key exists
-          if ! yq e ".${PROJECT_KEY}" "$CONFIG_FILE" > /dev/null; then
-            echo "Error: Project key '$PROJECT_KEY' not found in $CONFIG_FILE"
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "Error: Config file '$CONFIG_FILE' not found."
             exit 1
           fi
 
-          # Extract values and set them as environment variables for subsequent steps
-          # Use 'yq e' for evaluation and handle potential null/missing optional values
-          # Use '?? ""' to provide an empty string default for optional fields if they are null/missing
-          echo "GITHUB_REPO=$(yq e ".${PROJECT_KEY}.github_repo" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "BUILD_COMMAND=$(yq e ".${PROJECT_KEY}.build_command" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "TARGET=$(yq e ".${PROJECT_KEY}.target // \"\"" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "BUILD_DEPS=$(yq e ".${PROJECT_KEY}.build_deps // \"\"" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "RUNTIME_IMAGE=$(yq e ".${PROJECT_KEY}.runtime_image" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "TARGET_BINARY_PATH=$(yq e ".${PROJECT_KEY}.target_binary_path" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "BINARY_NAME=$(yq e ".${PROJECT_KEY}.binary_name" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "BUILD_IMAGE=$(yq e ".${PROJECT_KEY}.build_image // \"\"" "$CONFIG_FILE")" >> $GITHUB_ENV # Handle optional build_image
+          # Extract values using yq, providing defaults for new/optional fields
+          # Use 'yq e' (evaluate) and '?? default' for null coalescing
+          echo "DOCKERFILE_LOCATION=$(yq e '.dockerfile_location // "local"' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "DOCKERFILE_PATH=$(yq e '.dockerfile_path // "Dockerfile"' "$CONFIG_FILE")" >> $GITHUB_ENV
 
-          # Vars for image naming/tagging
-          echo "IMAGE_NAME_SUFFIX=$(yq e ".${PROJECT_KEY}.image_name_suffix" "$CONFIG_FILE")" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$(yq e ".${PROJECT_KEY}.image_tag" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "GITHUB_REPO=$(yq e '.github_repo // ""' "$CONFIG_FILE")" >> $GITHUB_ENV # Needed even if Dockerfile is target, for cloning
+          echo "BUILD_COMMAND=$(yq e '.build_command // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "TARGET=$(yq e '.target // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BUILD_DEPS=$(yq e '.build_deps // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "RUNTIME_IMAGE=$(yq e '.runtime_image // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "TARGET_BINARY_PATH=$(yq e '.target_binary_path // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BINARY_NAME=$(yq e '.binary_name // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BUILD_IMAGE=$(yq e '.build_image // ""' "$CONFIG_FILE")" >> $GITHUB_ENV
+
+          # Vars for image naming/tagging (these should generally be required)
+          IMAGE_NAME_SUFFIX=$(yq e '.image_name_suffix' "$CONFIG_FILE")
+          if [ -z "$IMAGE_NAME_SUFFIX" ] || [ "$IMAGE_NAME_SUFFIX" == "null" ]; then echo "Error: image_name_suffix is required in $CONFIG_FILE"; exit 1; fi
+          echo "IMAGE_NAME_SUFFIX=$IMAGE_NAME_SUFFIX" >> $GITHUB_ENV
+
+          IMAGE_TAG=$(yq e '.image_tag' "$CONFIG_FILE")
+           if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" == "null" ]; then echo "Error: image_tag is required in $CONFIG_FILE"; exit 1; fi
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
           # Construct the full image name
           IMAGE_OWNER="${{ github.repository_owner }}"
-          IMAGE_SUFFIX=$(yq e ".${PROJECT_KEY}.image_name_suffix" "$CONFIG_FILE")
-          echo "FULL_IMAGE_NAME=${{ env.REGISTRY }}/${IMAGE_OWNER}/${IMAGE_SUFFIX}" >> $GITHUB_ENV
+          echo "FULL_IMAGE_NAME=${{ env.REGISTRY }}/${IMAGE_OWNER}/${IMAGE_NAME_SUFFIX}" >> $GITHUB_ENV
+          echo "TARGET_REPO_DIR=${TARGET_REPO_DIR}" >> $GITHUB_ENV # Pass clone dir to other steps
+
+      # --- Conditional Step: Clone Target Repo ---
+      - name: Clone Target Repo if Dockerfile is remote
+        if: env.DOCKERFILE_LOCATION == 'target'
+        run: |
+          if [ -z "${{ env.GITHUB_REPO }}" ]; then
+            echo "Error: 'github_repo' must be set in config when dockerfile_location is 'target'."
+            exit 1
+          fi
+          echo "Cloning ${{ env.GITHUB_REPO }} into ${{ env.TARGET_REPO_DIR }}..."
+          # Use depth 1 for efficiency, adjust if full history is needed by build
+          # NOTE: This assumes public repos. For private, you'd need a PAT secret.
+          git clone --depth 1 https://github.com/${{ env.GITHUB_REPO }}.git ${{ env.TARGET_REPO_DIR }}
 
       # Set up Docker Buildx
       - name: Set up Docker Buildx
@@ -92,16 +112,20 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          # Set context based on where Dockerfile is located
+          context: ${{ env.DOCKERFILE_LOCATION == 'target' && env.TARGET_REPO_DIR || '.' }}
+          # Set Dockerfile path relative to the context
+          file: ${{ env.DOCKERFILE_PATH }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GITHUB_REPO=${{ env.GITHUB_REPO }}
-            BUILD_COMMAND=${{ env.BUILD_COMMAND }}
-            TARGET=${{ env.TARGET }}
-            BUILD_DEPS=${{ env.BUILD_DEPS }}
-            RUNTIME_IMAGE=${{ env.RUNTIME_IMAGE }}
-            TARGET_BINARY=${{ env.TARGET_BINARY_PATH }} # Maps to TARGET_BINARY ARG in Dockerfile
-            BINARY_NAME=${{ env.BINARY_NAME }}
-            ${{ env.BUILD_IMAGE != '' && format('BUILD_IMAGE={0}', env.BUILD_IMAGE) || '' }} # Conditionally pass BUILD_IMAGE only if set
+            # Pass all defined build args. The Dockerfile being used will ignore ones it doesn't define.
+            ${{ env.GITHUB_REPO != '' && format('GITHUB_REPO={0}', env.GITHUB_REPO) || '' }}
+            ${{ env.BUILD_COMMAND != '' && format('BUILD_COMMAND={0}', env.BUILD_COMMAND) || '' }}
+            ${{ env.TARGET != '' && format('TARGET={0}', env.TARGET) || '' }}
+            ${{ env.BUILD_DEPS != '' && format('BUILD_DEPS={0}', env.BUILD_DEPS) || '' }}
+            ${{ env.RUNTIME_IMAGE != '' && format('RUNTIME_IMAGE={0}', env.RUNTIME_IMAGE) || '' }}
+            ${{ env.TARGET_BINARY_PATH != '' && format('TARGET_BINARY={0}', env.TARGET_BINARY_PATH) || '' }}
+            ${{ env.BINARY_NAME != '' && format('BINARY_NAME={0}', env.BINARY_NAME) || '' }}
+            ${{ env.BUILD_IMAGE != '' && format('BUILD_IMAGE={0}', env.BUILD_IMAGE) || '' }}

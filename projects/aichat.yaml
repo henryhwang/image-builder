@@ -1,0 +1,19 @@
+# Configuration for building the 'aichat' project
+
+# --- Dockerfile Location ---
+dockerfile_location: local # Options: local | target (default: local)
+dockerfile_path: Dockerfile # Path relative to location (default: Dockerfile)
+
+# --- Dockerfile ARGs (used if dockerfile_path points to the generic Dockerfile) ---
+github_repo: sigoden/aichat
+build_command: 'cargo build --release'
+# target: x86_64-unknown-linux-musl
+# build_deps: musl-dev
+runtime_image: alpine:latest
+target_binary_path: target/release/aichat # Adjust if using 'target' ARG
+binary_name: aichat
+# build_image: rust:1.81-slim
+
+# --- Image Push ARGs ---
+image_name_suffix: aichat # Resulting image: ghcr.io/your-org/aichat
+image_tag: latest
