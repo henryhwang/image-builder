@@ -1,0 +1,152 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "Generic Image Builder Project Config",
+	"description": "Configuration for building Docker images from GitHub projects or Docker Hub",
+	"type": "object",
+	"required": [
+		"name",
+		"build_type"
+	],
+	"properties": {
+		"name": {
+			"type": "string",
+			"description": "The name of the project, used for image tagging (e.g., 'aichat')",
+			"minLength": 1
+		},
+		"repo": {
+			"type": "string",
+			"description": "The GitHub repository (e.g., 'sigoden/aichat'), required for binary/source builds",
+			"pattern": "^[a-zA-Z0-9-_.]+/[a-zA-Z0-9-_.]+$"
+		},
+		"build_type": {
+			"type": "string",
+			"description": "The build method: 'binary', 'source', or 'transform'",
+			"enum": [
+				"binary",
+				"source",
+				"transform"
+			]
+		},
+		"binary": {
+			"type": "object",
+			"description": "Configuration for binary builds from GitHub releases",
+			"required": [
+				"asset",
+				"binary_name",
+				"version"
+			],
+			"properties": {
+				"asset": {
+					"type": "string",
+					"description": "Name of the release asset, with {{version}} placeholder (e.g., 'aichat-{{version}}-x86_64-unknown-linux-musl.tar.gz')",
+					"minLength": 1
+				},
+				"binary_name": {
+					"type": "string",
+					"description": "Name of the extracted binary (e.g., 'aichat')",
+					"minLength": 1
+				},
+				"version": {
+					"type": "string",
+					"description": "Release version (e.g., 'v0.20.0') or 'latest'",
+					"minLength": 1
+				}
+			},
+			"additionalProperties": false
+		},
+		"source": {
+			"type": "object",
+			"description": "Configuration for source code builds",
+			"required": [
+				"build_command",
+				"target_binary",
+				"build_image"
+			],
+			"properties": {
+				"build_command": {
+					"type": "string",
+					"description": "Command to build the project (e.g., 'cargo build --release')",
+					"minLength": 1
+				},
+				"target_binary": {
+					"type": "string",
+					"description": "Path to the compiled binary (e.g., 'target/release/rg')",
+					"minLength": 1
+				},
+				"build_image": {
+					"type": "string",
+					"description": "Base image for building (e.g., 'rust:1.77-alpine')",
+					"minLength": 1
+				},
+				"build_deps": {
+					"type": "string",
+					"description": "Space-separated list of build dependencies (e.g., 'musl-dev')",
+					"minLength": 1
+				},
+				"target": {
+					"type": "string",
+					"description": "Optional target architecture (e.g., 'x86_64-unknown-linux-musl')",
+					"minLength": 1
+				}
+			},
+			"additionalProperties": false
+		},
+		"transform": {
+			"type": "object",
+			"description": "Configuration for transforming Docker Hub images to GHCR",
+			"required": [
+				"source_image"
+			],
+			"properties": {
+				"source_image": {
+					"type": "string",
+					"description": "Source image from Docker Hub (e.g., 'nginx:latest')",
+					"minLength": 1
+				}
+			},
+			"additionalProperties": false
+		},
+		"runtime_image": {
+			"type": "string",
+			"description": "Base image for the runtime stage (e.g., 'alpine:3.19'), required for binary/source builds",
+			"minLength": 1
+		}
+	},
+	"oneOf": [
+		{
+			"properties": {
+				"build_type": {
+					"const": "binary"
+				}
+			},
+			"required": [
+				"repo",
+				"binary",
+				"runtime_image"
+			]
+		},
+		{
+			"properties": {
+				"build_type": {
+					"const": "source"
+				}
+			},
+			"required": [
+				"repo",
+				"source",
+				"runtime_image"
+			]
+		},
+		{
+			"properties": {
+				"build_type": {
+					"const": "transform"
+				}
+			},
+			"required": [
+				"transform"
+			]
+		}
+	],
+	"additionalProperties": false
+}

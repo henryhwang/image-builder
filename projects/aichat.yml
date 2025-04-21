@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../project-config-schema.json
+
+name: "aichat"
+build_type: "source"
+repo: "sigoden/aichat"
+source:
+  build_command: "cargo build --release"
+  target_binary: "target/release/aichat"
+  build_image: "rust:1.81-alpine"
+  build_deps: "git"
+runtime_image: "alpine-3.19"
+
