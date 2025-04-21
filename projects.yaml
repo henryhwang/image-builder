@@ -1,0 +1,29 @@
+# Configuration for building Docker images for different Rust projects
+
+aichat:
+  # --- Dockerfile ARGs ---
+  github_repo: sigoden/aichat
+  build_command: 'cargo build --release'
+  # target: x86_64-unknown-linux-musl # Optional: Uncomment and set for cross-compilation
+  # build_deps: musl-dev # Optional: Uncomment and set if build dependencies are needed
+  runtime_image: alpine:latest # Or scratch, gcr.io/distroless/static-debian11, etc.
+  target_binary_path: target/release/aichat # Adjust if using 'target' ARG
+  binary_name: aichat
+  # build_image: rust:1.81-slim # Optional: Override the default build image in Dockerfile
+
+  # --- Image Push ARGs ---
+  image_name_suffix: aichat # Resulting image: ghcr.io/your-org/aichat
+  image_tag: latest # Tag for the image
+
+another-project:
+  github_repo: another-owner/another-repo
+  build_command: 'cargo build --release --features cool_feature'
+  runtime_image: gcr.io/distroless/static-debian11
+  target_binary_path: target/release/another-app
+  binary_name: another-app
+  image_name_suffix: another-app-image
+  image_tag: v1.0.0
+  target: x86_64-unknown-linux-musl
+  build_deps: musl-dev
+
+# Add more projects here following the same structure

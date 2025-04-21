@@ -1,28 +1,69 @@
-name: Build and Push aichat Docker Image
+name: Build and Push Generic Rust Docker Image from Config
 
-# Trigger the workflow on push to the main branch
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      project_key:
+        description: 'Key of the project to build (must match a key in projects.yaml)'
+        required: true
+        type: string
 
-# Define environment variables
 env:
   REGISTRY: ghcr.io
-  # IMAGE_NAME: ${{ github.repository }}
-  IMAGE_NAME: ${{github.actor}}/aichat 
+  CONFIG_FILE: projects.yaml # Define the config file path
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write  # Required to push to GHCR
+      contents: read # Read repo contents (workflow, Dockerfile, projects.yaml)
+      packages: write # Push packages to GHCR
 
     steps:
-      # Check out the repository code (includes the Dockerfile)
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+        # Or use a dedicated action:
+        # uses: mikefarah/yq@v4
+
+      - name: Read Project Config and Set Environment Variables
+        id: read_config
+        run: |
+          PROJECT_KEY="${{ github.event.inputs.project_key }}"
+          CONFIG_FILE="${{ env.CONFIG_FILE }}"
+
+          echo "Reading configuration for project key: $PROJECT_KEY from $CONFIG_FILE"
+
+          # Check if project key exists
+          if ! yq e ".${PROJECT_KEY}" "$CONFIG_FILE" > /dev/null; then
+            echo "Error: Project key '$PROJECT_KEY' not found in $CONFIG_FILE"
+            exit 1
+          fi
+
+          # Extract values and set them as environment variables for subsequent steps
+          # Use 'yq e' for evaluation and handle potential null/missing optional values
+          # Use '?? ""' to provide an empty string default for optional fields if they are null/missing
+          echo "GITHUB_REPO=$(yq e ".${PROJECT_KEY}.github_repo" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BUILD_COMMAND=$(yq e ".${PROJECT_KEY}.build_command" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "TARGET=$(yq e ".${PROJECT_KEY}.target // \"\"" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BUILD_DEPS=$(yq e ".${PROJECT_KEY}.build_deps // \"\"" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "RUNTIME_IMAGE=$(yq e ".${PROJECT_KEY}.runtime_image" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "TARGET_BINARY_PATH=$(yq e ".${PROJECT_KEY}.target_binary_path" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BINARY_NAME=$(yq e ".${PROJECT_KEY}.binary_name" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "BUILD_IMAGE=$(yq e ".${PROJECT_KEY}.build_image // \"\"" "$CONFIG_FILE")" >> $GITHUB_ENV # Handle optional build_image
+
+          # Vars for image naming/tagging
+          echo "IMAGE_NAME_SUFFIX=$(yq e ".${PROJECT_KEY}.image_name_suffix" "$CONFIG_FILE")" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$(yq e ".${PROJECT_KEY}.image_tag" "$CONFIG_FILE")" >> $GITHUB_ENV
+
+          # Construct the full image name
+          IMAGE_OWNER="${{ github.repository_owner }}"
+          IMAGE_SUFFIX=$(yq e ".${PROJECT_KEY}.image_name_suffix" "$CONFIG_FILE")
+          echo "FULL_IMAGE_NAME=${{ env.REGISTRY }}/${IMAGE_OWNER}/${IMAGE_SUFFIX}" >> $GITHUB_ENV
 
       # Set up Docker Buildx
       - name: Set up Docker Buildx
@@ -33,18 +74,19 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
+          username: ${{ github.actor }} # Or github.repository_owner
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for the Docker image
+      # Extract metadata for Docker
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.FULL_IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
+            type=raw,value=${{ env.IMAGE_TAG }}
+            # Add other tags if needed, e.g., SHA tag
+            type=sha,enable=${{ github.ref_type == 'branch' }}
 
       # Build and push the Docker image
       - name: Build and push Docker image
@@ -54,3 +96,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GITHUB_REPO=${{ env.GITHUB_REPO }}
+            BUILD_COMMAND=${{ env.BUILD_COMMAND }}
+            TARGET=${{ env.TARGET }}
+            BUILD_DEPS=${{ env.BUILD_DEPS }}
+            RUNTIME_IMAGE=${{ env.RUNTIME_IMAGE }}
+            TARGET_BINARY=${{ env.TARGET_BINARY_PATH }} # Maps to TARGET_BINARY ARG in Dockerfile
+            BINARY_NAME=${{ env.BINARY_NAME }}
+            ${{ env.BUILD_IMAGE != '' && format('BUILD_IMAGE={0}', env.BUILD_IMAGE) || '' }} # Conditionally pass BUILD_IMAGE only if set
