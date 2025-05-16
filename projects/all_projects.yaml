@@ -1,0 +1,27 @@
+# config/projects.yaml
+projects:
+  - name: my-project-one
+    repo_url: https://github.com/YOUR_OWNER/my-project-one
+    current_version: v1.0.0
+    dockerfile:
+      in_repo: Dockerfile # Use Dockerfile at the root of my-project-one repo
+
+  - name: another-project
+    repo_url: https://github.com/YOUR_OWNER/another-project
+    current_version: v2.5.1
+    dockerfile:
+      in_repo: ./app/Dockerfile # Use Dockerfile in a subdirectory of another-project repo
+
+  - name: simple-service
+    repo_url: https://github.com/YOUR_OWNER/simple-service
+    current_version: v0.1.0
+    dockerfile:
+      from_build_repo: nodejs.Dockerfile # Use the 'nodejs.Dockerfile' from this build repo's 'dockerfiles' folder
+
+  - name: data-processor
+    repo_url: https://github.com/YOUR_OWNER/data-processor
+    current_version: v0.5.0
+    dockerfile:
+      from_build_repo: python-app.Dockerfile # Use 'python-app.Dockerfile' from this repo
+
+  # Add more projects
