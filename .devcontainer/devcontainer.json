@@ -1,6 +1,6 @@
 {
   "name": "Debian Sid with Neovim",
-  "image": "docker.io/debian:sid-slim",
+  "image": "docker.io/library/debian:sid-slim",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": false,
