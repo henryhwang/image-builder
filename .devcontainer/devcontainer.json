@@ -1,23 +1,26 @@
 {
-  "name": "Docker Image Builder Dev Environment",
-  "image": "debian:sid",
+  "image": "debian:sid-slim",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20"
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "username": "vscode",
+      "userUid": 1000,
+      "userGid": 1000,
+      "upgradePackages": true
     }
   },
-  "postCreateCommand": "bash .devcontainer/setup.sh",
-  "remoteUser": "root",
+  "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.deb && apt-get install -y ./nvim-linux64.deb && rm nvim-linux64.deb'",
   "containerEnv": {
-    "NVIM_CONFIG": "/root/.config/nvim"
+    "PATH": "/usr/local/bin:${PATH}"
   },
-  "runArgs": ["--init"],
-  "forwardPorts": [22],
-  "portsAttributes": {
-    "22": {
-      "label": "SSH",
-      "onAutoForward": "notify"
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "vscodevim.vim"
+      ]
     }
   }
 }
