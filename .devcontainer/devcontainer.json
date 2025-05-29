@@ -1,11 +1,9 @@
 {
+  "name": "Debian Sid with Neovim",
   "image": "debian:sid-slim",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": false,
-      "username": "vscode",
-      "userUid": 1000,
-      "userGid": 1000,
       "upgradePackages": true
     }
   },
@@ -22,5 +20,6 @@
         "vscodevim.vim"
       ]
     }
-  }
+  },
+  "remoteUser": "vscode"
 }
