@@ -1,0 +1,23 @@
+{
+  "name": "Docker Image Builder Dev Environment",
+  "image": "debian:sid",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "remoteUser": "root",
+  "containerEnv": {
+    "NVIM_CONFIG": "/root/.config/nvim"
+  },
+  "runArgs": ["--init"],
+  "forwardPorts": [22],
+  "portsAttributes": {
+    "22": {
+      "label": "SSH",
+      "onAutoForward": "notify"
+    }
+  }
+}
