@@ -3,7 +3,7 @@
   "image": "debian:sid-slim",
   "features": {},
   "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates neovim'",
-  "containerEnv": {
+  "remoteEnv": {
     "PATH": "/usr/local/bin:${PATH}"
   },
   "customizations": {
