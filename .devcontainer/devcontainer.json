@@ -7,7 +7,7 @@
       "upgradePackages": true
     }
   },
-  "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.deb && apt-get install -y ./nvim-linux64.deb && rm nvim-linux64.deb'",
+  "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates neovim",
   "containerEnv": {
     "PATH": "/usr/local/bin:${PATH}"
   },
