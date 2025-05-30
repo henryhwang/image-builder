@@ -1,7 +1,11 @@
 {
   "name": "Debian Sid with Neovim",
   "image": "debian:sid",
-  "features": {},
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
+  },
   "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates neovim'",
   "remoteEnv": {
     "PATH": "/usr/local/bin:${PATH}"
