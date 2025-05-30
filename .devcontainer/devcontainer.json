@@ -1,6 +1,6 @@
 {
   "name": "Debian Sid with Neovim",
-  "image": "debian:sid-slim",
+  "image": "debian:sid",
   "features": {},
   "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates neovim'",
   "containerEnv": {
