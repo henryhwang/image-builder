@@ -1,12 +1,7 @@
 {
   "name": "Debian Sid with Neovim",
-  "image": "docker.io/library/debian:sid-slim",
-  "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": false,
-      "upgradePackages": true
-    }
-  },
+  "image": "debian:sid-slim",
+  "features": {},
   "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates neovim'",
   "containerEnv": {
     "PATH": "/usr/local/bin:${PATH}"
