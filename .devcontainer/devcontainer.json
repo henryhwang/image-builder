@@ -1,13 +1,82 @@
 {
-  "name": "Debian Sid with Neovim",
+  "name": "Debian Sid Dev Environment (Workflows & Vue.js)",
+  // Using debian:sid from Docker Hub as the base image
   "image": "debian:sid",
   "features": {
-    "ghcr.io/devcontainers/features/sshd:1": {
+    // COMMON UTILITIES: This is crucial for a bare image like debian:sid.
+    // It installs common tools (git, curl, wget, unzip, etc.),
+    // creates a non-root user (default: vscode), and sets up sudo.
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true, // Optionally install Zsh (and Oh My Zsh)
+      "installOhMyZsh": true,
+      "username": "vscode", // Name of the non-root user to create
+      "userUid": "1000",
+      "userGid": "1000",
+      "upgradePackages": true // Upgrade packages after installing tools
+    },
+    // NODE.JS: For Vue.js development
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts", // Use the latest Long-Term Support version
+      "nodeGypDependencies": true, // Install node-gyp dependencies
+      "yarn": "latest" // Install the latest version of Yarn
+    },
+    // DOCKER-IN-DOCKER: For running Docker commands (e.g., for `act` or containerized Vue apps)
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    },
+    // GITHUB CLI: For interacting with GitHub
+    "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     }
   },
-  "postCreateCommand": "bash -c 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates neovim'",
-  "remoteEnv": {
-    "PATH": "/usr/local/bin:${PATH}"
-  }
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/zsh", // Or /bin/bash if you didn't install Zsh
+        "files.eol": "\n",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit" // Use "explicit" for better control
+        },
+        "eslint.validate": [
+          "javascript",
+          "javascriptreact",
+          "typescript",
+          "vue"
+        ],
+        "github-actions.workflows.pinned.workflows": []
+      },
+      "extensions": [
+        "GitHub.codespaces",
+        "Vue.volar",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "GitHub.vscode-github-actions",
+        "ms-azuretools.vscode-docker",
+        "timonwong.shellcheck",
+        "redhat.vscode-yaml",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+  "forwardPorts": [
+    5173,
+    8080
+  ],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "openPreview"
+    },
+    "8080": {
+      "label": "Web App (8080)",
+      "onAutoForward": "openPreview"
+    }
+  },
+  // Commands to run after the container is created and features are installed.
+  // The user 'vscode' (or as configured in common-utils) will exist by this point.
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y curl sudo && echo 'Codespace created with debian:sid base! Installing act for local GitHub Actions testing...' && curl -s https_raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash && echo 'act installation complete.' && su vscode -c 'echo \"For Vue.js, use \\`npm create vue@latest your-project-name\\` or \\`yarn create vue@latest your-project-name\\` to start a new project.\"'",
+  // Set the remote user for the Codespace. This should match the user created by common-utils.
+  "remoteUser": "vscode"
 }
