@@ -1,82 +1,77 @@
 {
-  "name": "Debian Sid Dev Environment (Workflows & Vue.js)",
-  // Using debian:sid from Docker Hub as the base image
+  "name": "Vue.js & GitHub Workflows Dev Environment",
+  // Using debian:bookworm from Docker Hub.
   "image": "debian:bookworm",
   "features": {
-    // COMMON UTILITIES: This is crucial for a bare image like debian:sid.
-    // It installs common tools (git, curl, wget, unzip, etc.),
-    // creates a non-root user (default: vscode), and sets up sudo.
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true, // Optionally install Zsh (and Oh My Zsh)
-      "installOhMyZsh": true,
-      "username": "vscode", // Name of the non-root user to create
-      "userUid": "1000",
-      "userGid": "1000",
-      "upgradePackages": true // Upgrade packages after installing tools
-    },
-    // NODE.JS: For Vue.js development
+    // Install Node.js (LTS version) for Vue.js development and general scripting.
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "lts", // Use the latest Long-Term Support version
-      "nodeGypDependencies": true, // Install node-gyp dependencies
-      "yarn": "latest" // Install the latest version of Yarn
+      "version": "lts"
     },
-    // DOCKER-IN-DOCKER: For running Docker commands (e.g., for `act` or containerized Vue apps)
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest",
-      "moby": true,
-      "dockerDashComposeVersion": "v2"
+    // Install GitHub CLI for interacting with GitHub repositories and workflows.
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Includes common utilities like zsh, git, curl, wget, jq, yq, shellcheck, etc.
+    // This is especially important when starting from a minimal base image like debian:bookworm,
+    // as it ensures essential tools are available for other features and general use.
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true
     },
-    // GITHUB CLI: For interacting with GitHub
-    "ghcr.io/devcontainers/features/github-cli:1": {
-      "version": "latest"
+    // Allows installing global npm packages after the container is created.
+    "ghcr.io/devcontainers/features/npm-global:1": {
+      "packages": "vue-cli" // Automatically install Vue CLI globally
     }
   },
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.shell.linux": "/bin/zsh", // Or /bin/bash if you didn't install Zsh
-        "files.eol": "\n",
+        // Set Zsh as the default integrated terminal shell.
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        // Enable format on save for consistent code styling.
+        "editor.formatOnSave": true,
+        // Set Prettier as the default formatter for supported languages.
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        // Configure ESLint to run on save.
         "editor.codeActionsOnSave": {
-          "source.fixAll.eslint": "explicit" // Use "explicit" for better control
-        },
-        "eslint.validate": [
-          "javascript",
-          "javascriptreact",
-          "typescript",
-          "vue"
-        ],
-        "github-actions.workflows.pinned.workflows": []
+          "source.fixAll.eslint": "explicit"
+        }
       },
       "extensions": [
-        "GitHub.codespaces",
+        // Vue.js Language Features (Volar) for syntax highlighting, IntelliSense, etc.
         "Vue.volar",
+        // TypeScript Vue Plugin (Volar) for better TypeScript support in Vue files.
+        "Vue.vscode-typescript-vue-plugin",
+        // ESLint for linting JavaScript and Vue files.
         "dbaeumer.vscode-eslint",
+        // Prettier for code formatting.
         "esbenp.prettier-vscode",
+        // GitHub Pull Requests and Issues integration.
+        "GitHub.vscode-pull-request-github",
+        // GitHub Actions extension for better workflow editing and validation.
         "GitHub.vscode-github-actions",
-        "ms-azuretools.vscode-docker",
-        "timonwong.shellcheck",
+        // YAML support for editing GitHub Workflow files.
         "redhat.vscode-yaml",
+        // Docker extension for managing Docker containers and images.
+        "ms-azuretools.vscode-docker",
+        // GitLens for enhanced Git capabilities.
         "eamodio.gitlens"
       ]
     }
   },
+  // Forward common ports used by Vue.js development servers.
   "forwardPorts": [
-    5173,
-    8080
+    8080,
+    3000,
+    5173
   ],
-  "portsAttributes": {
-    "5173": {
-      "label": "Vite Dev Server",
-      "onAutoForward": "openPreview"
-    },
-    "8080": {
-      "label": "Web App (8080)",
-      "onAutoForward": "openPreview"
-    }
-  },
-  // Commands to run after the container is created and features are installed.
-  // The user 'vscode' (or as configured in common-utils) will exist by this point.
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y curl sudo && echo 'Codespace created with debian:sid base! Installing act for local GitHub Actions testing...' && curl -s https_raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash && echo 'act installation complete.' && su vscode -c 'echo \"For Vue.js, use \\`npm create vue@latest your-project-name\\` or \\`yarn create vue@latest your-project-name\\` to start a new project.\"'",
-  // Set the remote user for the Codespace. This should match the user created by common-utils.
-  "remoteUser": "vscode"
+  // Use 'codespace' as the default user inside the container for consistency.
+  "remoteUser": "codespace",
+  // Mount a volume for npm cache to speed up subsequent `npm install` commands.
+  // The `devcontainerId` variable ensures a unique cache volume per codespace.
+  "mounts": [
+    "source=devcontainer-npm-cache-${devcontainerId},target=/home/codespace/.npm,type=volume"
+  ],
+  // Commands to run after the container is created.
+  // This now includes installing openssh-server and basic setup for SSH.
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y git curl wget openssh-server && sudo mkdir -p /run/sshd && sudo chmod 0755 /run/sshd && sudo service ssh start"
 }
