@@ -1,7 +1,7 @@
 {
   "name": "Debian Sid Dev Environment (Workflows & Vue.js)",
   // Using debian:sid from Docker Hub as the base image
-  "image": "debian:sid",
+  "image": "debian:bookworm",
   "features": {
     // COMMON UTILITIES: This is crucial for a bare image like debian:sid.
     // It installs common tools (git, curl, wget, unzip, etc.),
