@@ -17,10 +17,13 @@
       "installOhMyZsh": true,
       "upgradePackages": true
     },
-    // Allows installing global npm packages after the container is created.
-    "ghcr.io/devcontainers/features/npm-global:1": {
-      "packages": "vue-cli" // Automatically install Vue CLI globally
+    // SSHD feature for SSH access.
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest",
+      "port": 2222 // It's often good practice to use a non-standard port like 2222
     }
+    // REMOVED: "ghcr.io/devcontainers/features/npm-global:1" due to permission issues.
+    // Vue CLI will now be installed via postCreateCommand.
   },
   "customizations": {
     "vscode": {
@@ -59,10 +62,12 @@
     }
   },
   // Forward common ports used by Vue.js development servers.
+  // Make sure to include the SSH port if you set a custom one (e.g., 2222).
   "forwardPorts": [
     8080,
     3000,
-    5173
+    5173,
+    2222
   ],
   // Use 'codespace' as the default user inside the container for consistency.
   "remoteUser": "codespace",
@@ -72,6 +77,6 @@
     "source=devcontainer-npm-cache-${devcontainerId},target=/home/codespace/.npm,type=volume"
   ],
   // Commands to run after the container is created.
-  // This now includes installing openssh-server and basic setup for SSH.
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y git curl wget openssh-server && sudo mkdir -p /run/sshd && sudo chmod 0755 /run/sshd && sudo service ssh start"
+  // This now includes configuring npm for global installs and installing Vue CLI.
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y git curl wget && npm config set prefix '~/.npm-global' && echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.zshrc && npm install -g @vue/cli"
 }
